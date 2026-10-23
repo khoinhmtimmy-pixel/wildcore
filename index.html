@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WILDCORE: EXTINCTION — Prototype</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="960" height="600"></canvas>
+    <div id="hud">
+      <div id="topbar">
+        <span id="title">WILDCORE: EXTINCTION</span>
+        <span id="zone">Zone: Safe</span>
+        <span id="timer">00:00</span>
+      </div>
+      <div id="left">
+        <div class="bar"><label>HP</label><div class="fill hp" id="hpbar"></div><span id="hpval">100</span></div>
+        <div class="bar"><label>EN</label><div class="fill en" id="enbar"></div><span id="enval">100</span></div>
+      </div>
+      <div id="bottom">
+        <div id="inv">
+          <span>Wood <b id="w">0</b></span>
+          <span>Ore <b id="o">0</b></span>
+          <span>Crystal <b id="c">0</b></span>
+          <span>Parts <b id="p">0</b></span>
+        </div>
+        <div id="msg"></div>
+      </div>
+      <div id="minimap"><canvas id="mm" width="140" height="140"></canvas></div>
+    </div>
+    <div id="overlay" class="hidden">
+      <div id="ovtitle"></div>
+      <div id="ovbody"></div>
+      <button id="ovbtn">Continue</button>
+    </div>
+  <button id="startBtn" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;z-index:10;">Start Game</button>
+  </div>
+  <script src="src/data.js"></script>
+  <script src="src/engine.js"></script>
+  <script src="src/world.js"></script>
+  <script src="src/entities.js"></script>
+  <script src="src/systems.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
