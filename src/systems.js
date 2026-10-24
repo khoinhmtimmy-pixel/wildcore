@@ -53,9 +53,11 @@ window.G = window.G || {};
   G.loop = function(ts) {
     const dt = Math.min(0.05, (ts-last)/1000 || 0.016);
     last = ts;
+    G.time = (G.time||0) + dt;
     if (G.state === "PLAYING") {
       G.updateEntities(dt);
       G.updateZone(dt);
+      G.updateParticles(dt);
       G.ui.update(dt);
     }
     G.render(dt);

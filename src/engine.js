@@ -19,10 +19,20 @@ window.G = window.G || {};
 
   // camera
   G.cam = { x: 0, y: 0 };
+  G.shake = { x: 0, y: 0, t: 0, mag: 0 };
+  G.time = 0;
+  G.particles = [];
   G.follow = function(target, dt) {
-    const tx = target.x - G.W/2, ty = target.y - G.H/2;
+    const tsx = (target.x - target.y) * 0.5;
+    const tsy = (target.x + target.y) * 0.25;
+    const tx = tsx - G.W/2, ty = tsy - G.H/2;
     G.cam.x += (tx - G.cam.x) * Math.min(1, dt*6);
     G.cam.y += (ty - G.cam.y) * Math.min(1, dt*6);
+    // shake decay
+    G.shake.t = Math.max(0, G.shake.t - dt);
+    const s = G.shake.t > 0 ? G.shake.mag * (G.shake.t/0.3) : 0;
+    G.shake.x = (Math.random()*2-1)*s;
+    G.shake.y = (Math.random()*2-1)*s;
   };
 
   // iso conversion: world (x,y) in tile coords -> screen
@@ -30,15 +40,15 @@ window.G = window.G || {};
   G.TILE = G.data.TILE;
   G.iso = function(wx, wy, elev) {
     elev = elev || 0;
-    const x = (wx - wy) * (G.TILE/2);
-    const y = (wx + wy) * (G.TILE/4) - elev * (G.TILE/4);
-    return { x: x - G.cam.x, y: y - G.cam.y };
+    const x = (wx - wy) * 0.5;
+    const y = (wx + wy) * 0.25 - elev * (G.TILE/4);
+    return { x: x - G.cam.x + G.shake.x, y: y - G.cam.y + G.shake.y };
   };
-  // screen -> world tile (approx, ignores elev)
+  // screen -> world (pixels)
   G.screenToWorld = function(sx, sy) {
-    const x = sx + G.cam.x, y = sy + G.cam.y;
-    const wx = (x/(G.TILE/2) + y/(G.TILE/4)) / 2;
-    const wy = (y/(G.TILE/4) - x/(G.TILE/2)) / 2;
+    const u = sx + G.cam.x, v = sy + G.cam.y;
+    const wx = u + 2*v;
+    const wy = 2*v - u;
     return { x: wx, y: wy };
   };
 
@@ -92,4 +102,29 @@ window.G = window.G || {};
     // simpler: draw at iso pos
     ctx.fillStyle = color; ctx.fill();
   };
+  // particles
+  G.spawnParticle = function(x, y, vx, vy, life, color, size) {
+    G.particles.push({ x, y, vx, vy, life, maxlife: life, color, size: size||3 });
+  };
+  G.updateParticles = function(dt) {
+    for (const p of G.particles) {
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.92; p.vy *= 0.92;
+      p.life -= dt;
+    }
+    G.particles = G.particles.filter(p => p.life > 0);
+  };
+  G.drawParticles = function(ctx) {
+    for (const p of G.particles) {
+      const ip = G.iso(p.x, p.y, 0);
+      const a = Math.max(0, p.life / p.maxlife);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(ip.x, ip.y-4, Math.max(0.5, p.size*a+1), 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  };
+  G.screenShake = function(mag, dur) { G.shake.mag = mag; G.shake.t = dur||0.3; };
 })();

@@ -9,7 +9,7 @@ window.G = window.G || {};
       G.state = "MENU";
     }
   });
-  // start loop
+  // start button
   document.getElementById("startBtn").addEventListener("click", () => {
     if (G.state === "MENU") { G.startGame(); document.getElementById("startBtn").style.display="none"; }
   });

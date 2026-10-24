@@ -37,6 +37,12 @@ window.G = window.G || {};
     if (target.armor) dmg = Math.max(1, dmg - target.armor);
     target.hp -= dmg;
     target.flash = 0.15;
+    if (target === G.player) { G.screenShake(6, 0.2); }
+    const ty = target.wy!==undefined? target.wy : target.y;
+    const col = source==="player" ? "#fbbf24" : "#ef4444";
+    for (let i=0;i<6;i++){
+      G.spawnParticle(tx, ty, (Math.random()-0.5)*4, (Math.random()-0.5)*4 - 1, 0.4, col, 2);
+    }
     if (target.hp <= 0) {
       target.hp = 0;
       if (target === G.player) { G.playerDead(); }
@@ -75,8 +81,8 @@ window.G = window.G || {};
     // apply with collision
     const nx = p.x + p.vx;
     const ny = p.y + p.vy;
-    if (G.canMove(nx, p.y, p.r)) p.x = nx;
-    if (G.canMove(p.x, ny, p.r)) p.y = ny;
+    if (G.canMove(nx, p.y, p.r)) { p.x = nx; if (Math.random()<0.3) G.spawnParticle(p.x, p.y, (Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5, 0.3, "rgba(255,255,255,.4)", 1); }
+    if (G.canMove(p.x, ny, p.r)) { p.y = ny; }
 
     // facing toward mouse
     const w = G.screenToWorld(G.mouse.x, G.mouse.y);
@@ -179,6 +185,7 @@ window.G = window.G || {};
       const amt = best.amount;
       p.inventory[best.type] = (p.inventory[best.type]||0)+amt;
       best.dead = true;
+      for (let i=0;i<10;i++) G.spawnParticle(best.wx, best.wy, (Math.random()-0.5)*3, (Math.random()-0.5)*3-1, 0.6, "#fbbf24", 2);
       G.beep(520,0.08,"sine");
       G.ui.msg("Picked up "+amt+" "+best.type);
       G.ui.refreshInv();
@@ -227,6 +234,7 @@ window.G = window.G || {};
     const chance = 0.5 + (1 - cr.hp/cr.maxhp)*0.4;
     if (Math.random() < chance) {
       cr.tamed = true; cr.owner="player";
+      for (let i=0;i<16;i++) G.spawnParticle(cr.wx, cr.wy, (Math.random()-0.5)*4, (Math.random()-0.5)*4-2, 0.8, "#22c55e", 3);
       if (p.party.length < 2) {
         p.party.push(cr); cr.inParty = true;
         if (p.active < 0) p.active = 0;
