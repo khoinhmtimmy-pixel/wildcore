@@ -84,6 +84,7 @@ window.G = window.G || {};
   // render main
   G.render = function(dt) {
     const ctx = G.ctx;
+    ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0,0,G.W,G.H);
     // background
     ctx.fillStyle = "#0a1220"; ctx.fillRect(0,0,G.W,G.H);
@@ -190,6 +191,18 @@ window.G = window.G || {};
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,G.W,G.H);
 
+    // fog of war: limit vision around player (simple radial gradient, no compositing)
+    const p = G.player;
+    const pip = G.iso(p.x, p.y, 0);
+    let vr = 260;
+    if (p.active>=0 && p.party[p.active] && p.party[p.active].modules && p.party[p.active].modules.includes("sensor")) vr += 100;
+    const fogGrad = ctx.createRadialGradient(pip.x, pip.y-8, 30, pip.x, pip.y-8, vr);
+    fogGrad.addColorStop(0, "rgba(5,8,16,0.0)");
+    fogGrad.addColorStop(0.5, "rgba(5,8,16,0.35)");
+    fogGrad.addColorStop(1, "rgba(5,8,16,0.88)");
+    ctx.fillStyle = fogGrad;
+    ctx.fillRect(0,0,G.W,G.H);
+
     // HUD overlays (craft menu)
     if (craftOpen) drawCraftMenu(ctx);
     if (invOpen) drawInvMenu(ctx);
@@ -286,7 +299,11 @@ window.G = window.G || {};
     // hp bar
     drawHpBar(ctx, ip.x, ip.y-24+bob, 28, e.hp, e.maxhp, e.tamed?"#22c55e":"#ef4444");
     ctx.fillStyle = "#cbd5e1"; ctx.font="bold 9px sans-serif"; ctx.textAlign="center";
-    ctx.fillText(spec.name + (e.tamed?" (T)":""), ip.x, ip.y-30+bob);
+    ctx.fillText(spec.name + (e.tamed?" (T)":"") + (e.level>1?" Lv"+e.level:""), ip.x, ip.y-30+bob);
+    if (e.evolved) {
+      ctx.fillStyle = "#a78bfa"; ctx.font="bold 8px sans-serif";
+      ctx.fillText("EVOLVED", ip.x, ip.y-38+bob);
+    }
   }
 
   function drawTech(ctx, e) {
@@ -479,6 +496,8 @@ window.G = window.G || {};
     ctx.fillText("Weapon: "+p.weapon.name+" (dmg "+p.weapon.dmg+")", x+12, yy); yy+=18;
     ctx.fillText("Armor: +"+p.armor+"  HP "+Math.ceil(p.hp)+"/"+p.maxhp, x+12, yy); yy+=18;
     ctx.fillText("Modules: "+(p.modules.join(", ")||"none"), x+12, yy); yy+=24;
+    const codexCount = Object.keys((G.loadSave().codex)||{}).length;
+    ctx.fillStyle = "#a78bfa"; ctx.fillText("Codex: "+codexCount+"/3", x+12, yy); yy+=18;
     ctx.fillStyle = "#fbbf24"; ctx.fillText("Party (press 1/2/3 to switch active):", x+12, yy); yy+=16;
     p.party.forEach((c,i)=>{
       const spec = D.creatures[c.species];
@@ -517,7 +536,7 @@ window.G = window.G || {};
     ctx.fillStyle = "#94a3b8"; ctx.font = "13px sans-serif";
     const lines = [
       "WASD move · Mouse aim · LMB attack · RMB creature ability",
-      "E interact/tame/pickup · Space dash · C crafting · Tab inventory · 1/2/3 swap creature",
+      "E interact/tame/pickup · Space dash · C crafting · Tab inventory · 1/2/3 swap · F stay/follow",
       "Survive the shrinking zone, tame creatures, craft gear, defeat the Colossus boss.",
     ];
     lines.forEach((l,i)=>ctx.fillText(l, G.W/2, 260+i*22));

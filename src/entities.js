@@ -46,7 +46,34 @@ window.G = window.G || {};
     if (target.hp <= 0) {
       target.hp = 0;
       if (target === G.player) { G.playerDead(); }
-      else target.dead = true;
+      else {
+        target.dead = true;
+        // grant XP to active creature if player killed it
+        if (source === "player") {
+          const p = G.player;
+          if (p.active>=0 && p.party[p.active]) {
+            const c = p.party[p.active];
+            c.xp = (c.xp||0) + 10;
+            const spec = D.creatures[c.species];
+            const newLevel = 1 + Math.floor(c.xp / 30);
+            if (newLevel > (c.level||1)) {
+              c.level = newLevel;
+              c.maxhp = (c.maxhp||spec.hp) + 10;
+              c.hp = c.maxhp;
+              c.dmg = (c.dmg || spec.dmg) + 2;
+              G.ui.msg(spec.name+" leveled up to "+c.level+"!");
+              G.spawnParticle(c.wx, c.wy, 0, -3, 1, "#fbbf24", 4);
+              G.beep(660,0.15,"sine");
+              if (c.level >= 3 && !c.evolved) {
+                c.evolved = true;
+                c.maxhp += 20; c.hp = c.maxhp;
+                G.ui.msg(spec.name+" evolved!");
+                G.spawnParticle(c.wx, c.wy, 0, -4, 1.2, "#a78bfa", 5);
+              }
+            }
+          }
+        }
+      }
       G.beep(120, 0.1, "sawtooth");
     } else {
       G.beep(220, 0.05, "square");
@@ -116,6 +143,8 @@ window.G = window.G || {};
       const c = p.party[p.active];
       if (c) { G.creatureAbility(c, p); p.cooldowns.ability = 1.4; }
     }
+    // creature mode toggle
+    if (G.keys["f"]) { G.keys["f"]=false; if (p.active>=0 && p.party[p.active]) { const c=p.party[p.active]; c.mode = c.mode==="stay"?"follow":"stay"; G.ui.msg(D.creatures[c.species].name+" mode: "+c.mode); } }
     // interact key
     if (G.keys["e"]) { G.keys["e"]=false; G.interact(); }
     // crafting toggle
@@ -148,7 +177,7 @@ window.G = window.G || {};
 
   G.meleeHit = function(x,y,range,dmg,owner) {
     for (const e of G.map.entities) {
-      if (e.dead || e.kind==="resource") continue;
+      if (e.dead || e.kind==="resource" || e.kind==="boss") continue;
       if (e === G.player) continue;
       const d = Math.hypot(e.wx?e.wx:e.x - x, (e.wy?e.wy:e.y) - y);
       // use wx/wy if present else x/y
@@ -159,7 +188,7 @@ window.G = window.G || {};
         let mult = 1;
         if (e.element) mult = G.elemMult(owner==="player"? (G.player.active>=0? G.data.creatures[G.player.party[G.player.active].species].element : null) : null, e.element);
         // player melee no element unless creature active? keep simple
-        G.damage(e, dmg, owner);
+        G.damage(e, dmg*mult, owner);
         // knockback
         const l = dd||1; e.kx = (ex-x)/l*3; e.ky=(ey-y)/l*3;
       }
@@ -226,44 +255,50 @@ window.G = window.G || {};
   G.tryTame = function(cr) {
     const p = G.player;
     const spec = D.creatures[cr.species];
-    // need weakened
     if (cr.hp > cr.maxhp*0.35) { G.ui.msg(spec.name+" not weakened enough"); return; }
-    // food check
     if ((p.inventory[spec.tamingFood]||0) < 1) { G.ui.msg("Need "+spec.tamingFood+" to tame"); return; }
     p.inventory[spec.tamingFood] -= 1;
-    const chance = 0.5 + (1 - cr.hp/cr.maxhp)*0.4;
-    if (Math.random() < chance) {
+    cr.tamingProgress = (cr.tamingProgress||0) + 1;
+    const req = cr.tamingRequired || 3;
+    const pct = cr.tamingProgress / req;
+    G.ui.msg(spec.name+" taming: "+Math.round(pct*100)+"%");
+    G.spawnParticle(cr.wx, cr.wy, 0, -2, 0.6, "#22c55e", 3);
+    if (cr.tamingProgress >= req) {
       cr.tamed = true; cr.owner="player";
       for (let i=0;i<16;i++) G.spawnParticle(cr.wx, cr.wy, (Math.random()-0.5)*4, (Math.random()-0.5)*4-2, 0.8, "#22c55e", 3);
+      G.beep(780,0.15,"sine");
+      G.ui.msg("Tamed "+spec.name+"!");
+      const save = G.loadSave();
+      save.codex = save.codex || {};
+      if (!save.codex[cr.species]) { save.codex[cr.species]=true; G.ui.msg("Codex unlocked: "+spec.name); }
+      G.saveProgress(save);
       if (p.party.length < 2) {
-        p.party.push(cr); cr.inParty = true;
+        p.party.push(cr); cr.inParty = true; cr.mode = "follow";
         if (p.active < 0) p.active = 0;
-        G.ui.msg("Tamed "+spec.name+"!");
-        G.beep(780,0.15,"sine");
       } else {
         G.ui.msg(spec.name+" tamed but party full (max 2)");
       }
     } else {
-      G.ui.msg(spec.name+" resisted!");
-      cr.state = "flee";
+      if (Math.random() < 0.25) { cr.state = "flee"; cr.tamingProgress = Math.max(0, cr.tamingProgress-1); G.ui.msg(spec.name+" resisted!"); }
     }
     G.ui.refreshInv();
   };
 
   G.creatureAbility = function(c, p) {
     const spec = D.creatures[c.species];
+    const dmg = c.dmg || spec.dmg;
     const elem = spec.element;
     const x = p.x + p.facing.x*10, y = p.y + p.facing.y*10;
     // simple projectile per element
     if (elem === "fire") {
-      G.spawnProjectile(p.x, p.y, p.facing.x*7, p.facing.y*7, spec.dmg, "player", "#f97316", 0.9);
-      G.spawnProjectile(p.x, p.y, p.facing.x*7+0.5, p.facing.y*7, spec.dmg*0.6, "player", "#f97316", 0.9);
+      G.spawnProjectile(p.x, p.y, p.facing.x*7, p.facing.y*7, dmg, "player", "#f97316", 0.9);
+      G.spawnProjectile(p.x, p.y, p.facing.x*7+0.5, p.facing.y*7, dmg*0.6, "player", "#f97316", 0.9);
     } else if (elem === "water") {
       // slow AoE around player
       for (const e of G.map.entities) {
         if (e.dead || e.kind==="resource") continue;
         const ex = e.wx!==undefined?e.wx:e.x, ey=e.wy!==undefined?e.wy:e.y;
-        if (Math.hypot(ex-p.x, ey-p.y) < 80) { e.slow = 2; G.damage(e, spec.dmg, "player"); }
+        if (Math.hypot(ex-p.x, ey-p.y) < 80) { e.slow = 2; G.damage(e, dmg, "player"); }
       }
     } else {
       // plant: heal player + thorns damage
@@ -271,7 +306,7 @@ window.G = window.G || {};
       for (const e of G.map.entities) {
         if (e.dead || e.kind==="resource") continue;
         const ex = e.wx!==undefined?e.wx:e.x, ey=e.wy!==undefined?e.wy:e.y;
-        if (Math.hypot(ex-p.x, ey-p.y) < 90) { G.damage(e, spec.dmg, "player"); }
+        if (Math.hypot(ex-p.x, ey-p.y) < 90) { G.damage(e, dmg, "player"); }
       }
     }
     c.cooldown = 3;
@@ -285,7 +320,7 @@ window.G = window.G || {};
       if (e.tamed) {
         if (e.cooldown>0) e.cooldown -= dt;
         // follow player if in party
-        if (e.inParty) {
+        if (e.inParty && e.mode !== "stay") {
           const p = G.player;
           const dx = p.x - e.wx, dy = p.y - e.wy;
           const d = Math.hypot(dx,dy);
@@ -422,7 +457,7 @@ window.G = window.G || {};
       // collision with entities
       if (pr.owner === "player") {
         for (const e of G.map.entities) {
-          if (e.dead || e.kind==="resource") continue;
+          if (e.dead || e.kind==="resource" || e.kind==="boss") continue;
           if (e.owner==="player" && e.kind==="tech") continue;
           const ex = e.wx!==undefined?e.wx:e.x, ey=e.wy!==undefined?e.wy:e.y;
           if (Math.hypot(ex-pr.x, ey-pr.y) < 12) {

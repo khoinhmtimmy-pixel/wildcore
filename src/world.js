@@ -100,7 +100,7 @@ window.G = window.G || {};
       const t=tiles[idx(x,y)];
       if (!TYPES[t.type].walk) continue;
       const ck = G.choice(ckeys);
-      G.map.entities.push({ kind:"creature", species:ck, tx:x, ty:y, wx:x*G.TILE+G.TILE/2, wy:y*G.TILE+G.TILE/2, hp:D.creatures[ck].hp, maxhp:D.creatures[ck].hp, tamed:false, state:"idle", cooldown:0, level:1 });
+      G.map.entities.push({ kind:"creature", species:ck, tx:x, ty:y, wx:x*G.TILE+G.TILE/2, wy:y*G.TILE+G.TILE/2, hp:D.creatures[ck].hp, maxhp:D.creatures[ck].hp, tamed:false, state:"idle", cooldown:0, level:1, xp:0, tamingProgress:0, tamingRequired:3, modules:[], inParty:false });
     }
     // tech beasts (broken)
     const tkeys = Object.keys(D.techBeasts);
